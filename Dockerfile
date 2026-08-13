@@ -2,12 +2,14 @@
 FROM node:26-bookworm-slim AS build
 
 ARG NPM_REGISTRY=https://registry.npmjs.org
+# dsh 版本：CI 每次检查 npm 新版本后以 --build-arg 覆盖
+ARG DSH_VERSION=0.1.0-rc.6
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# dsh（锁版本，保证可复现）
-RUN npm install -g --no-audit --no-fund --registry=${NPM_REGISTRY} @deepseek-ai/dsh@0.1.0-rc.6
+# dsh（版本由 DSH_VERSION 控制）
+RUN npm install -g --no-audit --no-fund --registry=${NPM_REGISTRY} @deepseek-ai/dsh@${DSH_VERSION}
 
 # ========== 阶段 2：编译 goauth-proxy（登录页为单文件静态 HTML，直接嵌入） ==========
 FROM golang:1.26 AS auth-build

@@ -17,7 +17,7 @@
 cp .env.example .env
 vim .env        # 改 AUTH_PASSWORD
 
-# 2. 启动（首次会自动构建镜像，需要几分钟）
+# 2. 启动（自动从 GHCR 拉取镜像，无需本地构建）
 docker compose up -d
 
 # 3. 看日志确认就绪
@@ -82,12 +82,17 @@ cookie 的 `Secure` 标志自动适配：直连 http 时不加，经 nginx HTTPS
 
 > ⚠️ **公网域名访问必须在 `.env` 里设置 `TRUSTED_HOSTS=你的域名`**：dsh web 的 `/api` 有来源校验（防 DNS rebinding），只信任 loopback 和这里声明的域名，不设的话界面所有 API 请求会被 403 拒绝。设完 `docker compose up -d` 生效。
 
-## 重新构建
+## 镜像更新（dsh 发新版自动出新镜像）
 
-```bash
-docker compose build        # 改了代码后
-docker compose up -d --build
-```
+镜像由 GitHub Actions 构建并推送到 `ghcr.io/myflv/dsh-auth`，**每天自动检查 npm 上
+@deepseek-ai/dsh 的新版本**，有新版就重新构建（`latest` + 版本号双 tag）：
+
+- `docker compose up -d` 每次都会拉取最新镜像（`pull_policy: always`）
+- 想立刻检查更新：GitHub 仓库 Actions 页面手动触发 `build-push` workflow
+- 手动触发强制重建（忽略版本检查）：同样在 Actions 页面 Run workflow
+
+> ⚠️ **国内网络注意**：`ghcr.io` 在部分地区访问不稳定，拉取失败时请挂代理重试，
+> 或把 compose 里的 `image:` 换成其他可访问的 registry。
 
 ## 安全设计
 

@@ -1,11 +1,9 @@
 services:
   dsh-auth:
-    build:
-      context: .
-      args:
-        # 国内网络可设 NPM_REGISTRY=https://registry.npmmirror.com
-        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
-    image: dsh-auth:latest
+    # 镜像由 GitHub Actions 构建推送到 GHCR（dsh 发新版自动重建），本地不 build
+    image: ghcr.io/myflv/dsh-auth:latest
+    # 每次 up -d 都检查并拉取最新镜像（dsh 更新即镜像更新）
+    pull_policy: always
     container_name: dsh-auth
     restart: unless-stopped
     init: true
