@@ -206,7 +206,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		ip := clientIP(r)
 		// 失败统一 302 回登录页带 err/u 参数（原生表单导航，无 JS 依赖）
 		loginErr := func(msg string) {
-			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape(msg)+"&u="+url.QueryEscape(r.FormValue("username")), http.StatusFound)
+			http.Redirect(w, r, "/login?err="+url.QueryEscape(msg)+"&u="+url.QueryEscape(r.FormValue("username")), http.StatusFound)
 		}
 		if limited(ip) {
 			loginErr("尝试次数过多，请 5 分钟后再试")
@@ -249,7 +249,7 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 		deleteSession(c.Value)
 	}
 	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", MaxAge: -1})
-	http.Redirect(w, r, authPrefix+"login", http.StatusFound)
+	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
 // 认证中间件：有有效会话才放行，否则跳登录页
@@ -259,6 +259,6 @@ func requireAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		http.Redirect(w, r, authPrefix+"login", http.StatusFound)
+		http.Redirect(w, r, "/login", http.StatusFound)
 	})
 }

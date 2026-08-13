@@ -6,7 +6,9 @@
 浏览器 → [nginx(HTTPS) 或 frp] → goauth-proxy(登录认证) → dsh web
 ```
 
-认证入口挂在**每次启动随机生成**的路径前缀下（如 `/3f9a2c.../login`），与 dsh web 的路由从构造上隔离，重启即换。
+认证入口是**固定路径** `/login`（以及 `/logout`）：dsh web 服务端只注册了
+`/plugins` 和 `/api` 两个前缀路由，其余路径全走 SPA catch-all（实测 POST `/login`
+返回 405），固定路径不会与它冲突；且路径不随重启变化，旧标签页永远不会失效。
 
 ## 快速开始
 
@@ -18,12 +20,12 @@ vim .env        # 改 AUTH_PASSWORD
 # 2. 启动（首次会自动构建镜像，需要几分钟）
 docker compose up -d
 
-# 3. 看日志，拿本次的登录入口
+# 3. 看日志确认就绪
 docker logs -f dsh-auth | grep "auth portal"
-# → auth portal: http://127.0.0.1:8080/3f9a2c7b1e5d/login
+# → auth portal: http://127.0.0.1:8080/login
 ```
 
-浏览器打开 `http://宿主机IP:8080/<hash>/login` 即可登录。
+浏览器打开 `http://宿主机IP:8080/login` 即可登录。
 
 ## 环境变量
 
@@ -94,7 +96,6 @@ docker compose up -d --build
 - 会话：32 字节随机 token + 内存存储，12h 过期，cookie `HttpOnly`/`SameSite=Strict`/`Secure`
 - CSRF：登录表单一次性 token
 - 登录限速：同 IP 连续失败 5 次锁 5 分钟
-- 认证入口随机化：每次启动换前缀，旧入口立即失效
 
 ## 目录结构
 

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/rand"
 	"embed"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -27,10 +25,10 @@ var (
 	insecureCookie = flag.Bool("insecure-cookie", false, "本地 http 调试时关闭 cookie 的 Secure 标志")
 )
 
-// 认证路径前缀：每次启动随机生成（如 /3f9a2c.../），所有认证资源挂在其下，
-// 与后端应用的路由从构造上隔离——应用几乎不可能碰巧存在同名路径，且重启即换
-var authPrefix string
-
+// 认证入口固定路径：/login、/logout。
+// dsh web 服务端只注册了 /plugins 和 /api 两个前缀路由，其余全走 SPA
+// catch-all（实测 POST /login 返回 405），固定路径不会冲突；
+// 且路径不再随重启变化，旧标签页永远不会失效
 func main() {
 	flag.Parse()
 
@@ -61,25 +59,14 @@ func main() {
 	}
 
 	initAuth(user, hash)
-	authPrefix = newAuthPrefix()
 
-	// 认证资源全部挂在随机前缀下：/<hash>/login、/<hash>/logout
-	http.HandleFunc(authPrefix+"login", handleLogin)
-	http.HandleFunc(authPrefix+"logout", handleLogout)
+	http.HandleFunc("/login", handleLogin)
+	http.HandleFunc("/logout", handleLogout)
 
 	// 其余所有路径：会话有效才反代到后端应用
 	http.Handle("/", requireAuth(proxyHandler(backendURL)))
 
 	log.Printf("listening on %s -> %s", *listen, *backend)
-	log.Printf("auth portal: http://%s%slogin", *listen, authPrefix)
+	log.Printf("auth portal: http://%s/login", *listen)
 	log.Fatal(http.ListenAndServe(*listen, nil))
-}
-
-// 每次启动生成一个随机路径前缀（48 bit），避免与后端应用的路由冲突
-func newAuthPrefix() string {
-	b := make([]byte, 6)
-	if _, err := rand.Read(b); err != nil {
-		log.Fatal(err)
-	}
-	return "/" + hex.EncodeToString(b) + "/"
 }
