@@ -27,6 +27,11 @@ docker logs -f dsh-auth | grep "auth portal"
 
 浏览器打开 `http://宿主机IP:8080/login` 即可登录。
 
+> **HTTPS 直连（自签）**：容器自带自签 HTTPS（8443 端口），浏览器访问
+> `https://宿主机IP:8443/login`（首次需手动信任证书）即可获得安全上下文——
+> 无需 nginx 也能用 `crypto.randomUUID` 等 Web API。证书 SAN 通过
+> `TLS_HOSTS` 环境变量追加域名/IP（如 `TLS_HOSTS=nas.100172.xyz`）。
+
 ## 环境变量
 
 | 变量 | 必填 | 默认 | 说明 |
@@ -35,6 +40,7 @@ docker logs -f dsh-auth | grep "auth portal"
 |---|---|---|---|
 | `AUTH_USER` | | `admin` | 登录用户名 |
 | `AUTH_PASSWORD` | ✅ | 无 | 登录密码（不设启动报错） |
+| `TLS_HOSTS` | | 空 | 自签 HTTPS 证书额外包含的域名/IP（逗号分隔，如 `nas.100172.xyz`） |
 
 ## 挂载卷（唯一的持久化点）
 
