@@ -26,9 +26,13 @@ echo "[dsh-auth] 数据目录: $DATA_DIR"
 AUTH_HASH="$(goauth-proxy -hash "$AUTH_PASSWORD")"
 echo "[dsh-auth] 认证用户: $AUTH_USER"
 
-# 启动 dsh web
+# 启动 dsh web（公网域名访问时声明 /api fence 信任来源）
 echo "[dsh-auth] 启动 dsh web ($DSH_HOST:$DSH_PORT) ..."
-dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
+if [ -n "$TRUSTED_HOSTS" ]; then
+    dsh web --host "$DSH_HOST" --port "$DSH_PORT" --trusted-host $TRUSTED_HOSTS &
+else
+    dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
+fi
 DSH_PID=$!
 
 # 启动认证代理（前台）

@@ -12,7 +12,7 @@ RUN apt-get update \
 RUN npm install -g --no-audit --no-fund --registry=${NPM_REGISTRY} @deepseek-ai/dsh@${DSH_VERSION}
 
 # ========== 阶段 2：编译 goauth-proxy（登录页为单文件静态 HTML，直接嵌入） ==========
-FROM golang:1.26 AS auth-build
+FROM golang:1.26-alpine AS auth-build
 # 国内网络 proxy.golang.org 不可达，用 goproxy.cn 镜像
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /src
