@@ -1,7 +1,7 @@
 package main
 
 import (
-	"embed"
+	_ "embed" // go:embed 所需
 	"flag"
 	"fmt"
 	"log"
@@ -13,10 +13,7 @@ import (
 )
 
 //go:embed static/login.html
-var loginHTML embed.FS
-
-// 登录页模板（启动时读取一次，每次请求替换占位符）
-var loginTemplate []byte
+var loginTemplate string // 登录页模板，启动时由编译器嵌入
 
 var (
 	listen         = flag.String("listen", "127.0.0.1:8080", "监听地址（由 nginx 反代过来）")
@@ -53,20 +50,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	loginTemplate, err = loginHTML.ReadFile("static/login.html")
-	if err != nil {
-		log.Fatal(err)
-	}
+	authUser, authHash = user, hash
 
-	initAuth(user, hash)
-
-	http.HandleFunc("/login", handleLogin)
-	http.HandleFunc("/logout", handleLogout)
+	http.HandleFunc(loginPath, handleLogin)
+	http.HandleFunc(logoutPath, handleLogout)
 
 	// 其余所有路径：会话有效才反代到后端应用
-	http.Handle("/", requireAuth(proxyHandler(backendURL)))
+	http.Handle(homePath, requireAuth(proxyHandler(backendURL)))
 
 	log.Printf("listening on %s -> %s", *listen, *backend)
-	log.Printf("auth portal: http://%s/login", *listen)
+	log.Printf("auth portal: http://%s%s", *listen, loginPath)
 	log.Fatal(http.ListenAndServe(*listen, nil))
 }
