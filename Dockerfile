@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
 FROM node:26-bookworm-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # dsh 及全局依赖（含编译好的原生模块）

@@ -15,6 +15,12 @@ services:
       AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
       # 可选：公网域名访问时的 /api 信任来源
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
+      # 模型网关代理：模型 API 需要走代理时设置（如 http://172.19.0.1:7890）
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-127.0.0.1,localhost}
+      # 模型 API key（settings.yaml 里 apiKeyEnv 声明的变量透传）
+      XIN_API_KEY: ${XIN_API_KEY:-}
       # 可选：
       # DSH_PORT: 3080          # dsh web 监听端口（容器内）
       # LISTEN_ADDR: 0.0.0.0:8080  # 认证代理监听地址（容器内）
