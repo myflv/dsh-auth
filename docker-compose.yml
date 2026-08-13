@@ -10,30 +10,14 @@ services:
     restart: unless-stopped
     init: true
     environment:
-      # 必填：登录用户名和密码（不设会启动报错）
-      AUTH_USER: ${AUTH_USER:-admin}
+      # 必填：登录密码（不设会启动报错）
       AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
+      AUTH_USER: ${AUTH_USER:-admin}
       # 可选：公网域名访问时的 /api 信任来源
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
-      # 模型网关代理：模型 API 需要走代理时设置（如 http://172.19.0.1:7890）
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-127.0.0.1,localhost}
-      # 模型 API key（settings.yaml 里 apiKeyEnv 声明的变量透传）
-      XIN_API_KEY: ${XIN_API_KEY:-}
-      # 可选：
-      # DSH_PORT: 3080          # dsh web 监听端口（容器内）
-      # LISTEN_ADDR: 0.0.0.0:8080  # 认证代理监听地址（容器内）
-      # DATA_DIR: /data         # dsh 工作目录（容器内路径）
-      # TRUSTED_HOSTS: dsh.example.com   # 公网域名访问时的 /api 信任来源（空格分隔多个）
     ports:
       # 只暴露到宿主机 localhost；公网访问走 frp -> VPS nginx，不要直接开放
       - "127.0.0.1:8080:8080"
-      # 想从局域网直接访问，改成:  - "8080:8080"
     volumes:
       # 唯一的挂载点：dsh 的工作目录（所有数据都在里面）
       - ./data:/data
-
-    # 如果你坚持用 host 网络模式（不推荐：会占用宿主机 3080 端口，且 8080 直接暴露）：
-    # network_mode: host
-    # 并删除上面 ports 两行

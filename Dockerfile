@@ -11,6 +11,8 @@ RUN npm install -g --no-audit --no-fund --registry=${NPM_REGISTRY} @deepseek-ai/
 
 # ========== 阶段 2：编译 goauth-proxy（登录页为单文件静态 HTML，直接嵌入） ==========
 FROM golang:1.26 AS auth-build
+# 国内网络 proxy.golang.org 不可达，用 goproxy.cn 镜像
+ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /src
 COPY auth/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
@@ -19,7 +21,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
 FROM node:26-bookworm-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # dsh 及全局依赖（含编译好的原生模块）
@@ -30,13 +32,7 @@ RUN ln -s /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js /usr/local/bin
 # 认证代理（静态二进制）
 COPY --from=auth-build /out/goauth-proxy /usr/local/bin/goauth-proxy
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENV DATA_DIR=/data \
-    DSH_HOST=127.0.0.1 \
-    DSH_PORT=3080 \
-    LISTEN_ADDR=0.0.0.0:8080
+COPY --chmod=+x entrypoint.sh /entrypoint.sh
 
 VOLUME /data
 EXPOSE 8080

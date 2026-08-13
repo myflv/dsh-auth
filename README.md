@@ -31,11 +31,10 @@ docker logs -f dsh-auth | grep "auth portal"
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
+| 变量 | 必填 | 默认 | 说明 |
+|---|---|---|---|
 | `AUTH_USER` | ✅ | `admin` | 登录用户名 |
 | `AUTH_PASSWORD` | ✅ | 无 | 登录密码（不设启动报错） |
-| `DSH_PORT` | | `3080` | dsh web 端口（容器内） |
-| `LISTEN_ADDR` | | `0.0.0.0:8080` | 认证代理监听地址（容器内） |
-| `DATA_DIR` | | `/data` | dsh 工作目录（容器内路径） |
 | `TRUSTED_HOSTS` | ⚠️ 公网时 | 空 | dsh web 的 `/api` 只信任 loopback 和这里声明的来源；走域名访问**必须**填（如 `dsh.example.com`，空格分隔多个） |
 | `NPM_REGISTRY` | | npmjs | 构建时 npm 镜像源（国内可设 `https://registry.npmmirror.com`） |
 
@@ -100,8 +99,8 @@ docker compose up -d --build
 ## 目录结构
 
 ```
-Dockerfile          多阶段：dsh 安装(编译工具链) → 前端构建 → Go 编译 → 精简运行镜像
+Dockerfile          多阶段：dsh 安装(编译工具链) → Go 编译 → 精简运行镜像（登录页已嵌入二进制）
 docker-compose.yml  一键编排
 entrypoint.sh       环境变量 → 哈希 → 双进程管理 + 优雅退出
-auth/               goauth-proxy 源码（Go + Vue3 认证页）
+auth/               goauth-proxy 源码（Go + 内嵌静态登录页）
 ```
