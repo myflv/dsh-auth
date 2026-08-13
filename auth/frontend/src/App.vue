@@ -1,54 +1,11 @@
 <script setup>
 import { ref } from 'vue'
 
-const username = ref('')
-const password = ref('')
-const error = ref('')
-const loading = ref(false)
-
-// 自动重载后恢复表单内容（CSRF 刷新不该让用户重新输入）
-const draft = JSON.parse(sessionStorage.getItem('login-draft') || 'null')
-if (draft) {
-  username.value = draft.username || ''
-  password.value = draft.password || ''
-  sessionStorage.removeItem('login-draft')
-}
-
-async function submit() {
-  if (loading.value) return
-  loading.value = true
-  error.value = ''
-  try {
-    const fd = new FormData()
-    fd.append('username', username.value.trim())
-    fd.append('password', password.value)
-    fd.append('csrf', window.__CSRF__ || '')
-    const res = await fetch('login', { method: 'POST', body: fd, redirect: 'manual' })
-    // 登录成功：服务端 302 + 种会话 cookie，跳进应用
-    if (res.type === 'opaqueredirect' || res.status === 302 || res.redirected) {
-      sessionStorage.removeItem('csrf-reloaded')
-      window.location.href = '/'
-      return
-    }
-    const text = await res.text()
-    // CSRF token 已失效（页面开太久/标签页过期）：自动刷新一次拿新 token
-    if (res.status === 400 && text.includes('CSRF')) {
-      if (!sessionStorage.getItem('csrf-reloaded')) {
-        sessionStorage.setItem('csrf-reloaded', '1')
-        sessionStorage.setItem('login-draft', JSON.stringify({ username: username.value, password: password.value }))
-        window.location.reload()
-        return
-      }
-      error.value = '校验超时，请手动刷新页面后重试'
-      loading.value = false
-      return
-    }
-    error.value = text || '登录失败，请重试'
-  } catch {
-    error.value = '网络异常，请稍后重试'
-  }
-  loading.value = false
-}
+// 错误信息由服务端 302 到 /login?err=... 带回（PRG 模式），页面刷新后展示
+const params = new URLSearchParams(window.location.search)
+const err = ref(params.get('err') || '')
+const username = ref(params.get('u') || '') // 输错密码后用户名自动预填
+const csrf = window.__CSRF__ || ''
 </script>
 
 <template>
@@ -72,21 +29,20 @@ async function submit() {
         <p class="sub">登录以继续访问</p>
       </div>
 
-      <form @submit.prevent="submit">
+      <!-- 原生表单提交：浏览器原生导航处理 Set-Cookie 是铁律，
+           不依赖 fetch/credentials，登录成功必然种下会话 cookie -->
+      <form method="post" action="login">
         <label class="field-label" for="username">用户名</label>
-        <input id="username" class="field" v-model="username" autocomplete="username" required placeholder="请输入用户名" autofocus />
+        <input id="username" class="field" name="username" v-model="username" autocomplete="username" required placeholder="请输入用户名" autofocus />
 
         <label class="field-label" for="password">密码</label>
-        <input id="password" class="field" v-model="password" type="password" autocomplete="current-password" required placeholder="请输入密码" />
+        <input id="password" class="field" name="password" type="password" autocomplete="current-password" required placeholder="请输入密码" />
 
-        <transition name="fade">
-          <p v-if="error" class="error" role="alert">{{ error }}</p>
-        </transition>
+        <input type="hidden" name="csrf" :value="csrf" />
 
-        <button class="btn" type="submit" :disabled="loading">
-          <span v-if="!loading">登录</span>
-          <span v-else class="spinner" aria-hidden="true"></span>
-        </button>
+        <p v-if="err" class="error" role="alert">{{ err }}</p>
+
+        <button class="btn" type="submit">登录</button>
       </form>
     </div>
   </div>
@@ -229,17 +185,6 @@ h1 { font-size: 17px; font-weight: 600; letter-spacing: 0.2px; }
 }
 .btn:hover { background: var(--btn-hover); }
 .btn:active { opacity: 0.85; }
-.btn:disabled { opacity: 0.55; cursor: default; }
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s var(--ease), transform 0.2s var(--ease); }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-2px); }

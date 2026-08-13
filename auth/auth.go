@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -194,22 +195,29 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		ip := clientIP(r)
+		// 错误统一 302 回登录页并带 err 参数（PRG 模式）：
+		// 前端用原生表单提交，浏览器原生导航处理 Set-Cookie 是铁律，
+		// 不依赖 fetch 的 credentials 行为
+		loginErr := func(msg string) {
+			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape(msg), http.StatusFound)
+		}
 		if limited(ip) {
-			http.Error(w, "尝试次数过多，请 5 分钟后再试", http.StatusTooManyRequests)
+			loginErr("尝试次数过多，请 5 分钟后再试")
 			return
 		}
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, "参数错误", http.StatusBadRequest)
+			loginErr("参数错误")
 			return
 		}
 		if !checkCSRF(r.FormValue("csrf")) {
-			http.Error(w, "CSRF 校验失败，请刷新页面重试", http.StatusBadRequest)
+			loginErr("校验超时，请刷新页面后重试")
 			return
 		}
 		if r.FormValue("username") != authUser ||
 			bcrypt.CompareHashAndPassword([]byte(authHash), []byte(r.FormValue("password"))) != nil {
 			recordFailure(ip)
-			http.Error(w, "用户名或密码错误", http.StatusUnauthorized)
+			// 用户名随 302 带回，登录页预填，不用重输
+			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape("用户名或密码错误")+"&u="+url.QueryEscape(r.FormValue("username")), http.StatusFound)
 			return
 		}
 
