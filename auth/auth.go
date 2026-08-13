@@ -3,10 +3,10 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -181,51 +181,55 @@ func recordFailure(ip string) {
 
 // ---------- handlers ----------
 
+// GET /<hash>/csrf：前端点击登录时才来取一次性 token（永远新鲜，不会过期）
+func handleCSRF(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]string{"token": newCSRF()})
+}
+
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		token := newCSRF()
-		// 登录页必须禁缓存：浏览器缓存旧 HTML 会带着已被消费的一次性 token，
-		// 导致刷新后依旧 CSRF 失败
+		// 页面不再内嵌 token，登录流程走 /csrf 按需获取
 		w.Header().Set("Cache-Control", "no-store")
-		// 把构建好的 Vue 登录页里的 {{CSRF}} 替换为一次性 token
-		page := strings.ReplaceAll(string(frontendIndex), "{{CSRF}}", token)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(page))
+		w.Write(frontendIndex)
 
 	case http.MethodPost:
 		ip := clientIP(r)
-		// 错误统一 302 回登录页并带 err 参数（PRG 模式）：
-		// 前端用原生表单提交，浏览器原生导航处理 Set-Cookie 是铁律，
-		// 不依赖 fetch 的 credentials 行为
-		loginErr := func(msg string) {
-			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape(msg), http.StatusFound)
+		// 错误统一返回 JSON，前端在卡片内展示，不整页刷新
+		loginErr := func(code int, msg string) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(code)
+			json.NewEncoder(w).Encode(map[string]string{"error": msg})
 		}
 		if limited(ip) {
-			loginErr("尝试次数过多，请 5 分钟后再试")
+			loginErr(http.StatusTooManyRequests, "尝试次数过多，请 5 分钟后再试")
 			return
 		}
 		if err := r.ParseForm(); err != nil {
-			loginErr("参数错误")
+			loginErr(http.StatusBadRequest, "参数错误")
 			return
 		}
 		if !checkCSRF(r.FormValue("csrf")) {
-			loginErr("校验超时，请刷新页面后重试")
+			loginErr(http.StatusBadRequest, "校验超时，请重试")
 			return
 		}
 		if r.FormValue("username") != authUser ||
 			bcrypt.CompareHashAndPassword([]byte(authHash), []byte(r.FormValue("password"))) != nil {
 			recordFailure(ip)
-			// 用户名随 302 带回，登录页预填，不用重输
-			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape("用户名或密码错误")+"&u="+url.QueryEscape(r.FormValue("username")), http.StatusFound)
+			loginErr(http.StatusUnauthorized, "用户名或密码错误")
 			return
 		}
 
 		consumeCSRF(r.FormValue("csrf")) // 成功后消费一次性 token
 		failures.Delete(ip)
+		token := newSession()
+		// 双通道：Set-Cookie 兜底 + 响应体返回 token（前端用 document.cookie 种）
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
-			Value:    newSession(),
+			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
@@ -234,7 +238,8 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			Secure: !*insecureCookie && (r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")),
 			MaxAge: int(sessionTTL.Seconds()),
 		})
-		http.Redirect(w, r, "/", http.StatusFound)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "session": token})
 	}
 }
 

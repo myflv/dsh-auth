@@ -64,8 +64,9 @@ func main() {
 	initAuth(user, hash)
 	authPrefix = newAuthPrefix()
 
-	// 认证资源全部挂在随机前缀下：/<hash>/login、/<hash>/logout、/<hash>/assets/...
+	// 认证资源全部挂在随机前缀下：/<hash>/login、/<hash>/csrf、/<hash>/logout、/<hash>/assets/...
 	http.HandleFunc(authPrefix+"login", handleLogin)
+	http.HandleFunc(authPrefix+"csrf", handleCSRF)
 	http.HandleFunc(authPrefix+"logout", handleLogout)
 	dist, err := fs.Sub(frontendFS, "frontend/dist")
 	if err != nil {

@@ -1,11 +1,40 @@
 <script setup>
 import { ref } from 'vue'
 
-// 错误信息由服务端 302 到 /login?err=... 带回（PRG 模式），页面刷新后展示
-const params = new URLSearchParams(window.location.search)
-const err = ref(params.get('err') || '')
-const username = ref(params.get('u') || '') // 输错密码后用户名自动预填
-const csrf = window.__CSRF__ || ''
+const username = ref('')
+const password = ref('')
+const error = ref('')
+const loading = ref(false)
+
+async function submit() {
+  if (loading.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    // 点击登录这一刻才向服务端要一次性 token（永远新鲜，不存在过期问题）
+    const csrfRes = await fetch('csrf')
+    const { token } = await csrfRes.json()
+
+    const fd = new FormData()
+    fd.append('username', username.value.trim())
+    fd.append('password', password.value)
+    fd.append('csrf', token)
+    const res = await fetch('login', { method: 'POST', body: fd })
+    const data = await res.json().catch(() => ({}))
+
+    if (res.ok && data.session) {
+      // 前端直接种会话 cookie（不依赖 Set-Cookie 处理，浏览器行为差异全部绕开）
+      const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+      document.cookie = `dsh_session=${data.session}; Path=/; Max-Age=43200; SameSite=Strict${secure}`
+      window.location.href = '/'
+      return
+    }
+    error.value = data.error || '登录失败，请重试'
+  } catch {
+    error.value = '网络异常，请稍后重试'
+  }
+  loading.value = false
+}
 </script>
 
 <template>
@@ -29,20 +58,20 @@ const csrf = window.__CSRF__ || ''
         <p class="sub">登录以继续访问</p>
       </div>
 
-      <!-- 原生表单提交：浏览器原生导航处理 Set-Cookie 是铁律，
-           不依赖 fetch/credentials，登录成功必然种下会话 cookie -->
-      <form method="post" action="login">
+      <!-- 登录全程 JS 驱动：token 点击时获取、错误卡片内展示、cookie 前端种 -->
+      <form @submit.prevent="submit">
         <label class="field-label" for="username">用户名</label>
         <input id="username" class="field" name="username" v-model="username" autocomplete="username" required placeholder="请输入用户名" autofocus />
 
         <label class="field-label" for="password">密码</label>
-        <input id="password" class="field" name="password" type="password" autocomplete="current-password" required placeholder="请输入密码" />
+        <input id="password" class="field" name="password" v-model="password" type="password" autocomplete="current-password" required placeholder="请输入密码" />
 
-        <input type="hidden" name="csrf" :value="csrf" />
+        <p v-if="error" class="error" role="alert">{{ error }}</p>
 
-        <p v-if="err" class="error" role="alert">{{ err }}</p>
-
-        <button class="btn" type="submit">登录</button>
+        <button class="btn" type="submit" :disabled="loading">
+          <span v-if="!loading">登录</span>
+          <span v-else class="spinner" aria-hidden="true"></span>
+        </button>
       </form>
     </div>
   </div>
@@ -185,6 +214,17 @@ h1 { font-size: 17px; font-weight: 600; letter-spacing: 0.2px; }
 }
 .btn:hover { background: var(--btn-hover); }
 .btn:active { opacity: 0.85; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s var(--ease), transform 0.2s var(--ease); }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-2px); }
