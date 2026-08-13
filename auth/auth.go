@@ -225,11 +225,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		consumeCSRF(r.FormValue("csrf")) // 成功后消费一次性 token
 		failures.Delete(ip)
-		token := newSession()
-		// 双通道：Set-Cookie 兜底 + 响应体返回 token（前端用 document.cookie 种）
+		// 302 + Set-Cookie（HttpOnly）：浏览器跟随跳转时处理 cookie，
+		// 前端用 res.redirected 判断认证成功
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
-			Value:    token,
+			Value:    newSession(),
 			Path:     "/",
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
@@ -238,8 +238,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			Secure: !*insecureCookie && (r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")),
 			MaxAge: int(sessionTTL.Seconds()),
 		})
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"ok": "true", "session": token})
+		http.Redirect(w, r, "/", http.StatusFound)
 	}
 }
 

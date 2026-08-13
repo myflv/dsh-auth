@@ -6,31 +6,49 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+// 前缀失效/会话异常时自愈：自动刷新一次，落到当前登录页
+// （容器每次重建前缀都会换，旧标签页靠这个自动恢复，不再卡死）
+function selfHeal() {
+  if (!sessionStorage.getItem('csrf-reloaded')) {
+    sessionStorage.setItem('csrf-reloaded', '1')
+    window.location.reload()
+  }
+}
+
 async function submit() {
   if (loading.value) return
   loading.value = true
   error.value = ''
   try {
-    // 点击登录这一刻才向服务端要一次性 token（永远新鲜，不存在过期问题）
+    // 点击登录这一刻才向服务端要一次性 token（永远新鲜）
     const csrfRes = await fetch('csrf')
-    const { token } = await csrfRes.json()
+    const { token } = await csrfRes.json().catch(() => {
+      // csrf 端点返回的不是 JSON：前缀已失效，刷新落回当前登录页
+      selfHeal()
+      throw new Error('stale')
+    })
 
     const fd = new FormData()
     fd.append('username', username.value.trim())
     fd.append('password', password.value)
     fd.append('csrf', token)
+    // 跟随 302：浏览器在跟随过程中处理服务端的 Set-Cookie（HttpOnly）
     const res = await fetch('login', { method: 'POST', body: fd })
-    const data = await res.json().catch(() => ({}))
 
-    if (res.ok && data.session) {
-      // 前端直接种会话 cookie（不依赖 Set-Cookie 处理，浏览器行为差异全部绕开）
-      const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-      document.cookie = `dsh_session=${data.session}; Path=/; Max-Age=43200; SameSite=Strict${secure}`
-      window.location.href = '/'
+    if (res.redirected) {
+      // 服务端 302 = 认证成功；最终落在应用根路径说明 cookie 已生效
+      if (res.url.split('#')[0] === window.location.origin + '/') {
+        window.location.href = '/'
+        return
+      }
+      // 极端情况：cookie 没被浏览器接受，刷新回登录页重试
+      selfHeal()
       return
     }
+    const data = await res.json().catch(() => ({}))
     error.value = data.error || '登录失败，请重试'
-  } catch {
+  } catch (e) {
+    if (e && e.message === 'stale') return
     error.value = '网络异常，请稍后重试'
   }
   loading.value = false
