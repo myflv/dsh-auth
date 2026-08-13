@@ -3,15 +3,18 @@ name: build-push
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '.dsh-version'   # 版本记录提交不触发重建
   schedule:
     - cron: '17 3 * * *'   # 每天检查 dsh 是否有新版本
   workflow_dispatch:
 
 permissions:
-  contents: write   # 更新 .dsh-version
   packages: write   # 推送 GHCR
+  actions: read     # build-push-action 的 gha 缓存
+
+# 连续 push 或 push 撞上定时任务时取消旧构建，避免并发重复构建
+concurrency:
+  group: dsh-auth-build
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -22,13 +25,16 @@ jobs:
       - name: 检查 dsh 最新版本
         id: check
         run: |
-          NEW=$(curl -s https://registry.npmjs.org/@deepseek-ai/dsh/latest | jq -r .version)
-          OLD=$(cat .dsh-version 2>/dev/null || echo none)
-          echo "npm 最新: $NEW / 镜像内: $OLD"
+          NEW=$(curl -fsS https://registry.npmjs.org/@deepseek-ai/dsh/latest | jq -r .version)
+          case "$NEW" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "版本解析失败: $NEW"; exit 1 ;;
+          esac
           echo "dsh_version=$NEW" >> "$GITHUB_OUTPUT"
-          # 定时触发且版本没变 -> 跳过；代码变更或手动触发 -> 总是构建
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$NEW" = "$OLD" ]; then
-            echo "无新版本，跳过"
+          # 定时触发且该版本镜像已存在 -> 跳过；代码变更或手动触发 -> 总是构建
+          if [ "${{ github.event_name }}" = "schedule" ] \
+            && docker manifest inspect "ghcr.io/${{ github.repository }}:$NEW" >/dev/null 2>&1; then
+            echo "镜像已存在，跳过"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -46,17 +52,11 @@ jobs:
         with:
           context: .
           push: true
+          # gha 缓存：node 阶段（最耗时）在版本不变时直接命中
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.check.outputs.dsh_version }}
           build-args: |
             DSH_VERSION=${{ steps.check.outputs.dsh_version }}
-
-      - name: 记录已构建的 dsh 版本
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          echo "${{ steps.check.outputs.dsh_version }}" > .dsh-version
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .dsh-version
-          git commit -m "chore: dsh ${{ steps.check.outputs.dsh_version }}" && git push || echo "无需提交"

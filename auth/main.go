@@ -17,7 +17,7 @@ var loginTemplate string // 登录页模板，启动时由编译器嵌入
 
 var (
 	listen         = flag.String("listen", "127.0.0.1:8080", "监听地址（由 nginx 反代过来）")
-	backend        = flag.String("backend", "http://127.0.0.1:13080", "上游地址（frps 的本地端口）")
+	backend        = flag.String("backend", "http://127.0.0.1:3080", "上游地址（entrypoint 显式传入，默认与容器接线一致）")
 	hashPass       = flag.String("hash", "", "生成 bcrypt 密码哈希后退出，例: goauth-proxy -hash 'mypass'")
 	insecureCookie = flag.Bool("insecure-cookie", false, "本地 http 调试时关闭 cookie 的 Secure 标志")
 )

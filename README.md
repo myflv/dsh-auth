@@ -33,9 +33,8 @@ docker logs -f dsh-auth | grep "auth portal"
 |---|---|---|---|
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `AUTH_USER` | ✅ | `admin` | 登录用户名 |
+| `AUTH_USER` | | `admin` | 登录用户名 |
 | `AUTH_PASSWORD` | ✅ | 无 | 登录密码（不设启动报错） |
-| `NPM_REGISTRY` | | npmjs | 构建时 npm 镜像源（国内可设 `https://registry.npmmirror.com`） |
 
 ## 挂载卷（唯一的持久化点）
 
@@ -85,11 +84,21 @@ cookie 的 `Secure` 标志自动适配：直连 http 时不加，经 nginx HTTPS
 @deepseek-ai/dsh 的新版本**，有新版就重新构建（`latest` + 版本号双 tag）：
 
 - `docker compose up -d` 每次都会拉取最新镜像（`pull_policy: always`）
-- 想立刻检查更新：GitHub 仓库 Actions 页面手动触发 `build-push` workflow
-- 手动触发强制重建（忽略版本检查）：同样在 Actions 页面 Run workflow
+- 想立刻检查/强制重建：GitHub 仓库 Actions 页面手动触发 `build-push` workflow
+- ⚠️ 若你是 NAS 上手工维护的 compose（没有 `pull_policy: always`），镜像不会
+  自动更新，需手动 `docker compose pull && docker compose up -d`，或补上该配置
 
 > ⚠️ **国内网络注意**：`ghcr.io` 在部分地区访问不稳定，拉取失败时请挂代理重试，
 > 或把 compose 里的 `image:` 换成其他可访问的 registry。
+
+## 本地开发（改 goauth-proxy 代码时）
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+用 `docker-compose.dev.yml` override：构建本地镜像 `dsh-auth:dev` 运行，
+不拉 GHCR、不影响线上 `latest`。
 
 ## 安全设计
 

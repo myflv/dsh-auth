@@ -2,7 +2,7 @@
 FROM node:26-bookworm-slim AS build
 
 ARG NPM_REGISTRY=https://registry.npmjs.org
-# dsh 版本：CI 每次检查 npm 新版本后以 --build-arg 覆盖
+# dsh 版本：CI 以 --build-arg 覆盖；此默认值仅供本地手动构建兜底
 ARG DSH_VERSION=0.1.0-rc.6
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
@@ -16,6 +16,9 @@ FROM golang:1.26-alpine AS auth-build
 # 国内网络 proxy.golang.org 不可达，用 goproxy.cn 镜像
 ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /src
+# go.mod/go.sum 先行：模块下载单独成层，源码改动不重下依赖（配合 CI gha 缓存）
+COPY auth/go.mod auth/go.sum ./
+RUN go mod download
 COPY auth/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
 
