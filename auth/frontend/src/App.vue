@@ -6,6 +6,14 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+// 自动重载后恢复表单内容（CSRF 刷新不该让用户重新输入）
+const draft = JSON.parse(sessionStorage.getItem('login-draft') || 'null')
+if (draft) {
+  username.value = draft.username || ''
+  password.value = draft.password || ''
+  sessionStorage.removeItem('login-draft')
+}
+
 async function submit() {
   if (loading.value) return
   loading.value = true
@@ -23,10 +31,11 @@ async function submit() {
       return
     }
     const text = await res.text()
-    // CSRF token 已消费/过期：自动刷新一次拿新 token（服务端已禁缓存）
+    // CSRF token 已失效（页面开太久/标签页过期）：自动刷新一次拿新 token
     if (res.status === 400 && text.includes('CSRF')) {
       if (!sessionStorage.getItem('csrf-reloaded')) {
         sessionStorage.setItem('csrf-reloaded', '1')
+        sessionStorage.setItem('login-draft', JSON.stringify({ username: username.value, password: password.value }))
         window.location.reload()
         return
       }

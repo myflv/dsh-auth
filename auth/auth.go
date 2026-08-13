@@ -111,7 +111,8 @@ func newCSRF() string {
 	return token
 }
 
-// 校验并立即消费（一次性）
+// 校验（不消费）：失败尝试不消耗 token，输错密码可以直接重试，
+// 多标签页各自持有有效 token 互不干扰
 func checkCSRF(token string) bool {
 	csrfMu.Lock()
 	defer csrfMu.Unlock()
@@ -119,8 +120,14 @@ func checkCSRF(token string) bool {
 	if !ok {
 		return false
 	}
-	delete(csrfTokens, token)
 	return time.Now().Before(t)
+}
+
+// 登录成功后消费：一次性 token 只允许一次成功
+func consumeCSRF(token string) {
+	csrfMu.Lock()
+	defer csrfMu.Unlock()
+	delete(csrfTokens, token)
 }
 
 // ---------- 登录失败限速 ----------
@@ -206,6 +213,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		consumeCSRF(r.FormValue("csrf")) // 成功后消费一次性 token
 		failures.Delete(ip)
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
