@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
@@ -15,11 +14,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed all:frontend/dist
-var frontendFS embed.FS
+//go:embed static/login.html
+var loginHTML embed.FS
 
-// 构建好的登录页 index.html（启动时读取一次）
-var frontendIndex []byte
+// 登录页模板（启动时读取一次，每次请求替换占位符）
+var loginTemplate []byte
 
 var (
 	listen         = flag.String("listen", "127.0.0.1:8080", "监听地址（由 nginx 反代过来）")
@@ -56,23 +55,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	frontendIndex, err = fs.ReadFile(frontendFS, "frontend/dist/index.html")
+	loginTemplate, err = loginHTML.ReadFile("static/login.html")
 	if err != nil {
-		log.Fatalf("前端未构建？请先: cd frontend && npm install && npm run build (%v)", err)
+		log.Fatal(err)
 	}
 
 	initAuth(user, hash)
 	authPrefix = newAuthPrefix()
 
-	// 认证资源全部挂在随机前缀下：/<hash>/login、/<hash>/csrf、/<hash>/logout、/<hash>/assets/...
+	// 认证资源全部挂在随机前缀下：/<hash>/login、/<hash>/logout
 	http.HandleFunc(authPrefix+"login", handleLogin)
-	http.HandleFunc(authPrefix+"csrf", handleCSRF)
 	http.HandleFunc(authPrefix+"logout", handleLogout)
-	dist, err := fs.Sub(frontendFS, "frontend/dist")
-	if err != nil {
-		log.Fatal(err)
-	}
-	http.Handle(authPrefix, http.StripPrefix(authPrefix, http.FileServer(http.FS(dist))))
 
 	// 其余所有路径：会话有效才反代到后端应用
 	http.Handle("/", requireAuth(proxyHandler(backendURL)))

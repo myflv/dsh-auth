@@ -1,10 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# ========== 阶段 1：安装 dsh + 构建认证页前端 ==========
+# ========== 阶段 1：安装 dsh（node-pty 原生模块需要编译工具链） ==========
 FROM node:26-bookworm-slim AS build
 
 ARG NPM_REGISTRY=https://registry.npmjs.org
-# dsh 依赖的 node-pty 是原生模块，安装时需要编译工具链
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
@@ -12,18 +11,10 @@ RUN apt-get update \
 # dsh（锁版本，保证可复现）
 RUN npm install -g --no-audit --no-fund --registry=${NPM_REGISTRY} @deepseek-ai/dsh@0.1.0-rc.6
 
-# 认证页前端（Vue3 + Vite）
-WORKDIR /src/frontend
-COPY auth/frontend/package.json auth/frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund --registry=${NPM_REGISTRY}
-COPY auth/frontend/ ./
-RUN npm run build
-
-# ========== 阶段 2：编译 goauth-proxy（前端产物嵌入二进制） ==========
+# ========== 阶段 2：编译 goauth-proxy（登录页为单文件静态 HTML，直接嵌入） ==========
 FROM golang:1.26 AS auth-build
 WORKDIR /src
 COPY auth/ ./
-COPY --from=build /src/frontend/dist ./frontend/dist
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
 
 # ========== 阶段 3：运行时（精简镜像，无需编译工具） ==========

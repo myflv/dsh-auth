@@ -3,10 +3,11 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"html"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -181,52 +182,53 @@ func recordFailure(ip string) {
 
 // ---------- handlers ----------
 
-// GET /<hash>/csrf：前端点击登录时才来取一次性 token（永远新鲜，不会过期）
-func handleCSRF(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+// 渲染登录页：替换模板占位符（token / 错误信息 / 用户名回填）
+func renderLogin(w http.ResponseWriter, errMsg, username string) {
+	token := newCSRF()
+	page := strings.NewReplacer(
+		"{{CSRF}}", token,
+		"{{ERR}}", html.EscapeString(errMsg),
+		"{{USER}}", html.EscapeString(username),
+	).Replace(string(loginTemplate))
+	// 禁缓存：防止浏览器缓存带旧 token 的页面
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(map[string]string{"token": newCSRF()})
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(page))
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// 页面不再内嵌 token，登录流程走 /csrf 按需获取
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(frontendIndex)
+		// 错误信息由 POST 失败后 302 带回（PRG 模式）
+		renderLogin(w, r.URL.Query().Get("err"), r.URL.Query().Get("u"))
 
 	case http.MethodPost:
 		ip := clientIP(r)
-		// 错误统一返回 JSON，前端在卡片内展示，不整页刷新
-		loginErr := func(code int, msg string) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(code)
-			json.NewEncoder(w).Encode(map[string]string{"error": msg})
+		// 失败统一 302 回登录页带 err/u 参数（原生表单导航，无 JS 依赖）
+		loginErr := func(msg string) {
+			http.Redirect(w, r, authPrefix+"login?err="+url.QueryEscape(msg)+"&u="+url.QueryEscape(r.FormValue("username")), http.StatusFound)
 		}
 		if limited(ip) {
-			loginErr(http.StatusTooManyRequests, "尝试次数过多，请 5 分钟后再试")
+			loginErr("尝试次数过多，请 5 分钟后再试")
 			return
 		}
 		if err := r.ParseForm(); err != nil {
-			loginErr(http.StatusBadRequest, "参数错误")
+			loginErr("参数错误")
 			return
 		}
 		if !checkCSRF(r.FormValue("csrf")) {
-			loginErr(http.StatusBadRequest, "校验超时，请重试")
+			loginErr("页面停留过久已失效，请刷新后重试")
 			return
 		}
 		if r.FormValue("username") != authUser ||
 			bcrypt.CompareHashAndPassword([]byte(authHash), []byte(r.FormValue("password"))) != nil {
 			recordFailure(ip)
-			loginErr(http.StatusUnauthorized, "用户名或密码错误")
+			loginErr("用户名或密码错误")
 			return
 		}
 
 		consumeCSRF(r.FormValue("csrf")) // 成功后消费一次性 token
 		failures.Delete(ip)
-		// 302 + Set-Cookie（HttpOnly）：浏览器跟随跳转时处理 cookie，
-		// 前端用 res.redirected 判断认证成功
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
 			Value:    newSession(),

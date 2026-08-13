@@ -1,10 +1,6 @@
 # 运行数据
 data/
 
-# 前端依赖（Docker 内 npm ci）
-**/node_modules/
-auth/frontend/dist/
-
 # 本地产物与 git
 auth/goauth-proxy
 .git/
