@@ -177,6 +177,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		token := newCSRF()
+		// 登录页必须禁缓存：浏览器缓存旧 HTML 会带着已被消费的一次性 token，
+		// 导致刷新后依旧 CSRF 失败
+		w.Header().Set("Cache-Control", "no-store")
 		// 把构建好的 Vue 登录页里的 {{CSRF}} 替换为一次性 token
 		page := strings.ReplaceAll(string(frontendIndex), "{{CSRF}}", token)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
