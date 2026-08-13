@@ -13,10 +13,13 @@ services:
       # 必填：登录用户名和密码（不设会启动报错）
       AUTH_USER: ${AUTH_USER:-admin}
       AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
+      # 可选：公网域名访问时的 /api 信任来源
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
       # 可选：
       # DSH_PORT: 3080          # dsh web 监听端口（容器内）
       # LISTEN_ADDR: 0.0.0.0:8080  # 认证代理监听地址（容器内）
       # DATA_DIR: /data         # dsh 工作目录（容器内路径）
+      # TRUSTED_HOSTS: dsh.example.com   # 公网域名访问时的 /api 信任来源（空格分隔多个）
     ports:
       # 只暴露到宿主机 localhost；公网访问走 frp -> VPS nginx，不要直接开放
       - "127.0.0.1:8080:8080"

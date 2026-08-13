@@ -10,6 +10,9 @@ DATA_DIR="${DATA_DIR:-/data}"
 DSH_HOST="${DSH_HOST:-127.0.0.1}"
 DSH_PORT="${DSH_PORT:-3080}"
 LISTEN_ADDR="${LISTEN_ADDR:-0.0.0.0:8080}"
+# dsh web 的 /api browser-trust fence：非 loopback 访问（如公网域名）时必须声明，
+# 空格分隔多个，如 TRUSTED_HOSTS="dsh.example.com dsh2.example.com"
+TRUSTED_HOSTS="${TRUSTED_HOSTS:-}"
 
 # dsh 工作目录：HOME 和 cwd 都指向挂载卷，dsh 的所有数据（.dsh/）落在里面
 mkdir -p "$DATA_DIR"
@@ -22,8 +25,14 @@ AUTH_HASH="$(goauth-proxy -hash "$AUTH_PASSWORD")"
 echo "[dsh-auth] 认证用户: $AUTH_USER"
 
 # 启动 dsh web
-echo "[dsh-auth] 启动 dsh web ($DSH_HOST:$DSH_PORT) ..."
-dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
+if [ -n "$TRUSTED_HOSTS" ]; then
+    echo "[dsh-auth] dsh web ($DSH_HOST:$DSH_PORT)，trusted hosts: $TRUSTED_HOSTS"
+    # shellcheck disable=SC2086 # 有意按空格拆分为多个 --trusted-host 参数
+    dsh web --host "$DSH_HOST" --port "$DSH_PORT" --trusted-host $TRUSTED_HOSTS &
+else
+    echo "[dsh-auth] 启动 dsh web ($DSH_HOST:$DSH_PORT) ..."
+    dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
+fi
 DSH_PID=$!
 
 # 等待 dsh web 就绪

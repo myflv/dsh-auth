@@ -34,6 +34,7 @@ docker logs -f dsh-auth | grep "auth portal"
 | `DSH_PORT` | | `3080` | dsh web 端口（容器内） |
 | `LISTEN_ADDR` | | `0.0.0.0:8080` | 认证代理监听地址（容器内） |
 | `DATA_DIR` | | `/data` | dsh 工作目录（容器内路径） |
+| `TRUSTED_HOSTS` | ⚠️ 公网时 | 空 | dsh web 的 `/api` 只信任 loopback 和这里声明的来源；走域名访问**必须**填（如 `dsh.example.com`，空格分隔多个） |
 | `NPM_REGISTRY` | | npmjs | 构建时 npm 镜像源（国内可设 `https://registry.npmmirror.com`） |
 
 ## 挂载卷（唯一的持久化点）
@@ -77,6 +78,8 @@ location / {
 ```
 
 cookie 的 `Secure` 标志自动适配：直连 http 时不加，经 nginx HTTPS 时自动加。
+
+> ⚠️ **公网域名访问必须在 `.env` 里设置 `TRUSTED_HOSTS=你的域名`**：dsh web 的 `/api` 有来源校验（防 DNS rebinding），只信任 loopback 和这里声明的域名，不设的话界面所有 API 请求会被 403 拒绝。设完 `docker compose up -d` 生效。
 
 ## 重新构建
 
