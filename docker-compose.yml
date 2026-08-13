@@ -11,8 +11,6 @@ services:
       # 必填：登录密码（不设会启动报错）
       AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
       AUTH_USER: ${AUTH_USER:-admin}
-      # 可选：公网域名访问时的 /api 信任来源
-      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
     ports:
       # 只暴露到宿主机 localhost；公网访问走 frp -> VPS nginx，不要直接开放
       - "127.0.0.1:8080:8080"

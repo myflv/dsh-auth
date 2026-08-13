@@ -5,11 +5,6 @@ set -e
 : "${AUTH_USER:?请设置 AUTH_USER 环境变量（登录用户名）}"
 : "${AUTH_PASSWORD:?请设置 AUTH_PASSWORD 环境变量（登录密码）}"
 
-# ===== 可选环境变量 =====
-# dsh web 的 /api browser-trust fence：非 loopback 访问（如公网域名）时必须声明，
-# 空格分隔多个，如 TRUSTED_HOSTS="dsh.example.com"
-TRUSTED_HOSTS="${TRUSTED_HOSTS:-}"
-
 # 内部接线（固定值，与 compose 的 ports/volumes 配套，改动需同步两处）
 DATA_DIR=/data
 DSH_HOST=127.0.0.1
@@ -26,13 +21,9 @@ echo "[dsh-auth] 数据目录: $DATA_DIR"
 AUTH_HASH="$(goauth-proxy -hash "$AUTH_PASSWORD")"
 echo "[dsh-auth] 认证用户: $AUTH_USER"
 
-# 启动 dsh web（公网域名访问时声明 /api fence 信任来源）
+# 启动 dsh web（/api fence 由 goauth-proxy 改写 Host/Origin 为回环地址解决）
 echo "[dsh-auth] 启动 dsh web ($DSH_HOST:$DSH_PORT) ..."
-if [ -n "$TRUSTED_HOSTS" ]; then
-    dsh web --host "$DSH_HOST" --port "$DSH_PORT" --trusted-host $TRUSTED_HOSTS &
-else
-    dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
-fi
+dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
 DSH_PID=$!
 
 # 启动认证代理（前台）
