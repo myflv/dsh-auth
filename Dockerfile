@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ========== 阶段 1：安装 dsh（node-pty 原生模块需要编译工具链） ==========
 FROM node:26-bookworm-slim AS build
 
