@@ -1,21 +1,12 @@
 services:
-  dsh-auth:
-    # 镜像由 GitHub Actions 构建推送到 GHCR（dsh 发新版自动重建），本地不 build
-    image: ghcr.io/myflv/dsh-auth:latest
-    # 每次 up -d 都检查并拉取最新镜像（dsh 更新即镜像更新）
-    pull_policy: always
-    container_name: dsh-auth
+  server:
+    image: ghcr.io/myflv/dsh-auth
     restart: unless-stopped
-    init: true
     environment:
-      # 必填：登录密码（不设会启动报错）
-      AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
-      AUTH_USER: ${AUTH_USER:-admin}
+      AUTH_USER: admin
+      AUTH_PASSWORD: admin
     ports:
-      # 只暴露到宿主机 localhost；公网访问走 frp -> VPS nginx，不要直接开放
-      - "127.0.0.1:8080:8080"
-      # 自签 HTTPS 直连（安全上下文）；想局域网直连改成 "8443:8443"
-      - "127.0.0.1:8443:8443"
+      - 8080:8080
+      - 8443:8443
     volumes:
-      # 唯一的挂载点：dsh 的工作目录（所有数据都在里面）
       - ./data:/data

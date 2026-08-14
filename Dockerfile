@@ -59,8 +59,11 @@ RUN apt-get update \
 
 COPY --from=build /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=auth-build /out/goauth-proxy /usr/local/bin/goauth-proxy
-COPY --chmod=+x entrypoint.sh /entrypoint.sh
+
+# goauth-proxy 直接作 PID 1：内建 dsh 子进程守护与信号转发，无需 shell 脚本和 init
+ENTRYPOINT ["/usr/local/bin/goauth-proxy"]
+# 容器内接线（与 compose 的 ports/volume 配套）：0.0.0.0 绑定是 bridge 端口发布的前提
+CMD ["-listen", "0.0.0.0:8080", "-tls-listen", "0.0.0.0:8443", "-backend", "http://127.0.0.1:3080", "-dsh-bin", "/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js", "-data-dir", "/data"]
 
 VOLUME /data
 EXPOSE 8080 8443
-ENTRYPOINT ["/entrypoint.sh"]
