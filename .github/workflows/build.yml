@@ -46,6 +46,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 设置 qemu（arm64 构建模拟）
+        uses: docker/setup-qemu-action@v3
+
       - name: 设置 buildx（docker-container driver，gha 缓存导出必需）
         uses: docker/setup-buildx-action@v3
 
@@ -55,6 +58,8 @@ jobs:
         with:
           context: .
           push: true
+          # amd64 + arm64（NAS 等 ARM 设备自动拉对应架构）
+          platforms: linux/amd64,linux/arm64
           # gha 缓存：node 阶段（最耗时）在版本不变时直接命中
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -86,7 +86,8 @@ cookie 的 `Secure` 标志自动适配：直连 http 时不加，经 nginx HTTPS
 ## 镜像更新（dsh 发新版自动出新镜像）
 
 镜像由 GitHub Actions 构建并推送到 `ghcr.io/myflv/dsh-auth`，**每天自动检查 npm 上
-@deepseek-ai/dsh 的新版本**，有新版就重新构建（`latest` + 版本号双 tag）：
+@deepseek-ai/dsh 的新版本**，有新版就重新构建（`latest` + 版本号双 tag）。
+支持 **amd64 + arm64** 双架构（NAS 等 ARM 设备自动拉取对应架构）：
 
 - `docker compose up -d` 每次都会拉取最新镜像（`pull_policy: always`）
 - 想立刻检查/强制重建：GitHub 仓库 Actions 页面手动触发 `build-push` workflow
