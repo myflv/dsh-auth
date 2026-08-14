@@ -23,8 +23,9 @@ AUTH_HASH="$(goauth-proxy -hash "$AUTH_PASSWORD")"
 echo "[dsh-auth] 认证用户: $AUTH_USER"
 
 # 启动 dsh web（/api fence 由 goauth-proxy 改写 Host/Origin 为回环地址解决）
+# 直接 node 调 bin.js，不依赖 npm 的 bin 符号链接（避免 Docker COPY 解引用问题）
 echo "[dsh-auth] 启动 dsh web ($DSH_HOST:$DSH_PORT) ..."
-dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
+node /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js web --host "$DSH_HOST" --port "$DSH_PORT" &
 DSH_PID=$!
 
 # 启动认证代理（前台）

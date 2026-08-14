@@ -31,10 +31,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # dsh 及全局依赖（含编译好的原生模块）
+# 不复制 npm 的 bin 符号链接（Docker COPY 会解引用成普通文件导致 ESM 解析失败），
+# entrypoint 直接用 node 调 lib/bin.js
 COPY --from=build /usr/local/lib/node_modules /usr/local/lib/node_modules
-# npm 的 bin 是符号链接，Docker COPY 会解引用成普通文件，导致 ESM 依赖解析失败；
-# 改为显式创建符号链接，Node 按真实路径解析依赖
-RUN ln -s /usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js /usr/local/bin/dsh
 # 认证代理（静态二进制）
 COPY --from=auth-build /out/goauth-proxy /usr/local/bin/goauth-proxy
 
