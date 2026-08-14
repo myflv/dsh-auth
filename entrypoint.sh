@@ -11,8 +11,6 @@ DSH_HOST=127.0.0.1
 DSH_PORT=3080
 LISTEN_ADDR=0.0.0.0:8080
 TLS_LISTEN=0.0.0.0:8443
-# 自签证书额外包含的域名/IP（逗号分隔，如 nas.100172.xyz,192.168.1.10）
-TLS_HOSTS="${TLS_HOSTS:-}"
 
 # dsh 工作目录：HOME 和 cwd 都指向挂载卷，dsh 的所有数据（.dsh/）落在里面
 mkdir -p "$DATA_DIR"
@@ -30,11 +28,11 @@ dsh web --host "$DSH_HOST" --port "$DSH_PORT" &
 DSH_PID=$!
 
 # 启动认证代理（前台）
+# 自签 HTTPS 证书默认只含 localhost/127.0.0.1；正式 TLS 交给 nginx 反代
 echo "[dsh-auth] 启动认证代理，监听 $LISTEN_ADDR（HTTPS $TLS_LISTEN）"
-TLS_LIST="localhost,127.0.0.1${TLS_HOSTS:+,$TLS_HOSTS}"
 AUTH_USER="$AUTH_USER" AUTH_HASH="$AUTH_HASH" \
     goauth-proxy -listen "$LISTEN_ADDR" -backend "http://$DSH_HOST:$DSH_PORT" \
-    -tls-listen "$TLS_LISTEN" -tls-hosts "$TLS_LIST" &
+    -tls-listen "$TLS_LISTEN" &
 AUTH_PID=$!
 
 # docker stop 时优雅退出

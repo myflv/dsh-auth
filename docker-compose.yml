@@ -11,8 +11,6 @@ services:
       # 必填：登录密码（不设会启动报错）
       AUTH_PASSWORD: ${AUTH_PASSWORD:?请在 .env 或环境变量里设置 AUTH_PASSWORD}
       AUTH_USER: ${AUTH_USER:-admin}
-      # 可选：自签 HTTPS 证书额外包含的域名/IP（逗号分隔，如 nas.100172.xyz）
-      TLS_HOSTS: ${TLS_HOSTS:-}
     ports:
       # 只暴露到宿主机 localhost；公网访问走 frp -> VPS nginx，不要直接开放
       - "127.0.0.1:8080:8080"

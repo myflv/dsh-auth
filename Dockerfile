@@ -25,8 +25,9 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/goauth-proxy .
 # ========== 阶段 3：运行时（精简镜像，无需编译工具） ==========
 FROM node:26-bookworm-slim
 
+# git/openssh-client：dsh 的 agent 在容器内可直接用 git
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates git openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # dsh 及全局依赖（含编译好的原生模块）
