@@ -13,9 +13,11 @@
 ## 快速开始
 
 ```bash
-# 1. 复制并配置环境变量（用户名/密码）
-cp .env.example .env
-vim .env        # 改 AUTH_PASSWORD
+# 1. 创建环境变量文件（用户名/密码）
+cat > .env <<'EOF'
+AUTH_USER=admin
+AUTH_PASSWORD=你的密码
+EOF
 
 # 2. 启动（自动从 GHCR 拉取镜像，无需本地构建）
 docker compose up -d
@@ -95,15 +97,6 @@ cookie 的 `Secure` 标志自动适配：直连 http 时不加，经 nginx HTTPS
 
 > ⚠️ **国内网络注意**：`ghcr.io` 在部分地区访问不稳定，拉取失败时请挂代理重试，
 > 或把 compose 里的 `image:` 换成其他可访问的 registry。
-
-## 本地开发（改 goauth-proxy 代码时）
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-用 `docker-compose.dev.yml` override：构建本地镜像 `dsh-auth:dev` 运行，
-不拉 GHCR、不影响线上 `latest`。
 
 ## 安全设计
 
