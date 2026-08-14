@@ -21,7 +21,6 @@ var (
 	hashPass       = flag.String("hash", "", "生成 bcrypt 密码哈希后退出，例: goauth-proxy -hash 'mypass'")
 	insecureCookie = flag.Bool("insecure-cookie", false, "本地 http 调试时关闭 cookie 的 Secure 标志")
 	tlsListen      = flag.String("tls-listen", "", "自签 HTTPS 监听地址（如 0.0.0.0:8443），空则关闭")
-	tlsHosts       = flag.String("tls-hosts", "localhost,127.0.0.1", "自签证书包含的域名/IP（逗号分隔）")
 )
 
 // 认证入口固定路径：/login、/logout。
@@ -54,11 +53,13 @@ func main() {
 
 	authUser, authHash = user, hash
 
-	http.HandleFunc(loginPath, handleLogin)
-	http.HandleFunc(logoutPath, handleLogout)
+	// 显式 mux：HTTP 与自签 HTTPS 共用同一套 handler
+	mux := http.NewServeMux()
+	mux.HandleFunc(loginPath, handleLogin)
+	mux.HandleFunc(logoutPath, handleLogout)
 
 	// 其余所有路径：会话有效才反代到后端应用
-	http.Handle(homePath, requireAuth(proxyHandler(backendURL)))
+	mux.Handle(homePath, requireAuth(proxyHandler(backendURL)))
 
 	log.Printf("listening on %s -> %s", *listen, *backend)
 	log.Printf("auth portal: http://%s%s", *listen, loginPath)
@@ -66,8 +67,8 @@ func main() {
 	// 自签 HTTPS（可选）：直连访问时的安全上下文，免 nginx
 	if *tlsListen != "" {
 		go func() {
-			log.Fatal(startTLS(*tlsListen, *tlsHosts))
+			log.Fatal(startTLS(*tlsListen, mux))
 		}()
 	}
-	log.Fatal(http.ListenAndServe(*listen, nil))
+	log.Fatal(http.ListenAndServe(*listen, mux))
 }

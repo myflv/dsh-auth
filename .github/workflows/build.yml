@@ -47,9 +47,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 设置 qemu（arm64 构建模拟）
+        if: steps.check.outputs.skip != 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: 设置 buildx（docker-container driver，gha 缓存导出必需）
+        if: steps.check.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: 构建并推送
@@ -60,9 +62,10 @@ jobs:
           push: true
           # amd64 + arm64（NAS 等 ARM 设备自动拉对应架构）
           platforms: linux/amd64,linux/arm64
-          # gha 缓存：node 阶段（最耗时）在版本不变时直接命中
+          # gha 缓存：node 阶段（最耗时）在版本不变时直接命中；
+          # ignore-error 让缓存服务不可用时构建不中断
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.check.outputs.dsh_version }}

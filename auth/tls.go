@@ -11,13 +11,16 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 )
 
-// selfSignedCert 生成自签证书（ECDSA P-256，10 年有效），SAN 包含指定域名/IP。
-// 免去证书文件管理；浏览器首次访问需手动信任（https 即安全上下文，
-// crypto.randomUUID 等 Web API 全部可用）
+// 自签证书的 SAN 固定为回环地址（正式 TLS 交给 nginx，见 README）。
+// 每次进程启动重新生成（指纹不固定），NotAfter 10 年只是证书字段装饰，
+// 实际有效期即进程生命周期
+const tlsHosts = "localhost,127.0.0.1"
+
+// selfSignedCert 生成自签证书（ECDSA P-256）。免去证书文件管理；
+// 浏览器首次访问需手动信任（https 即安全上下文，crypto.randomUUID 等可用）
 func selfSignedCert(hosts []string) (tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -50,22 +53,16 @@ func selfSignedCert(hosts []string) (tls.Certificate, error) {
 }
 
 // startTLS 启动自签 HTTPS 监听（与 HTTP 共用同一套 handler），阻塞直到退出
-func startTLS(addr, hosts string) error {
-	list := []string{}
-	for _, h := range strings.Split(hosts, ",") {
-		if h = strings.TrimSpace(h); h != "" {
-			list = append(list, h)
-		}
-	}
-	cert, err := selfSignedCert(list)
+func startTLS(addr string, handler http.Handler) error {
+	cert, err := selfSignedCert([]string{"localhost", "127.0.0.1"})
 	if err != nil {
 		return err
 	}
 	server := &http.Server{
 		Addr:      addr,
-		Handler:   nil, // 与 HTTP 共用 DefaultServeMux
+		Handler:   handler,
 		TLSConfig: &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12},
 	}
-	log.Printf("self-signed HTTPS on %s (hosts: %s) — 浏览器需手动信任证书", addr, hosts)
+	log.Printf("self-signed HTTPS on %s (hosts: %s) — 浏览器需手动信任证书，指纹随重启变化", addr, tlsHosts)
 	return server.ListenAndServeTLS("", "")
 }

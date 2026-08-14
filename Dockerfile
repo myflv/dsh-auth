@@ -41,5 +41,5 @@ COPY --from=auth-build /out/goauth-proxy /usr/local/bin/goauth-proxy
 COPY --chmod=+x entrypoint.sh /entrypoint.sh
 
 VOLUME /data
-EXPOSE 8080
+EXPOSE 8080 8443
 ENTRYPOINT ["/entrypoint.sh"]
